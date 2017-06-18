@@ -23,6 +23,11 @@ try:
 except ImportError:
     from urllib2 import urlopen, Request
 
+if ct.REDIS_ENABLED:
+    import redis
+    REDIS_SERVER = redis.Redis(ct.REDIS_SERVER_URL, db=ct.REDIS_DB)
+else:
+    REDIS_SERVER = None
 
 def get_hist_data(code=None, start=None, end=None,
                   ktype='D', retry_count=3,
@@ -342,11 +347,23 @@ def get_realtime_quotes(symbols=None):
     else:
         symbols_list = _code_to_symbol(symbols)
         
-    symbols_list = symbols_list[:-1] if len(symbols_list) > 8 else symbols_list 
-    request = Request(ct.LIVE_DATA_URL%(ct.P_TYPE['http'], ct.DOMAINS['sinahq'],
-                                                _random(), symbols_list))
-    text = urlopen(request,timeout=10).read()
-    text = text.decode('GBK')
+    symbols_list = symbols_list[:-1] if len(symbols_list) > 8 else symbols_list
+
+    redis_key = ct.REDIS_KEY_PREFIX + 'RT-%s' % symbols_list
+    if not REDIS_SERVER or REDIS_SERVER.get(redis_key) is None:
+        request = Request(ct.LIVE_DATA_URL%(ct.P_TYPE['http'], ct.DOMAINS['sinahq'],
+                                                    _random(), symbols_list))
+        text = urlopen(request,timeout=10).read()
+        text = text.decode('GBK')
+
+        # save to redis cache
+        if REDIS_SERVER:
+            REDIS_SERVER.set(redis_key, text)
+            REDIS_SERVER.expire(redis_key, 60)
+
+    else:
+        text = REDIS_SERVER.get(redis_key)
+
     reg = re.compile(r'\="(.*?)\";')
     data = reg.findall(text)
     regSym = re.compile(r'(?:sh|sz)(.*?)\=')

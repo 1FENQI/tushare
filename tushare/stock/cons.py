@@ -127,6 +127,17 @@ TOKEN_F_P = 'tk.csv'
 TOKEN_ERR_MSG = '请设置通联数据接口的token凭证码'
 BOX_INPUT_ERR_MSG = '请输入YYYY-MM格式的年月数据'
 
+try:
+    import redis
+
+    REDIS_ENABLED = True
+except:
+    REDIS_ENABLED = False
+
+REDIS_SERVER_URL = 'localhost'
+REDIS_DB = 10
+REDIS_KEY_PREFIX = 'TUSHARE_'
+
 import sys
 PY3 = (sys.version_info[0] >= 3)
 def _write_head():
